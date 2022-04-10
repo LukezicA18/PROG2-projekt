@@ -52,31 +52,12 @@ def subjectivity(tweet):
     return round(analysis.sentiment.subjectivity, 3)
 
 
-### if we want to see tweets according to diferent users
-# users = list(input('Tweets of wich users do you want to analyze? '))
-# limit = int(input('How many tweets of one user do you want to analyze? '))
-# columns = ['Time', 'User', 'Tweet', 'Followers', 'Retweets', 'Likes']
-# data = []
-# 
-# ## naredimo dataframe glede na userje, velikosti limit, s stolpci columns
-# for user in users:
-#     tweets = api.user_timeline(screen_name = user, count = limit, tweet_mode = 'extended')
-#     ### tweets = tweepy.Cursor(api.user_timeline, screen_name = user, count = 200, tweet_mode = 'extended').items(limit)
-#     for tweet in tweets:
-#         data.append([tweet.created_at, tweet.user.screen_name, tweet.full_text, tweet.user.followers_count, tweet.retweet_count, tweet.favorite_count])
-# 
-# pd.set_option('display.max_rows', None)  ## da pokaze vse vrstice
-# pd.set_option('display.max_columns', None)   ## da pokaze vse stolpce
-# df = pd.DataFrame(data, columns = columns)
-# # print(df)
 
-
-## if we want to see tweets that contain a specific word/hashtag
+## Tweets that contain a specific word/hashtag
 keyword = input('Tweets with wich word/hashtag do you want to analyze? ')
 limit = int(input('How many tweets do you want to analyze? ')) 
 columns = ['Time', 'User', 'Tweet', 'Retweets']
 data = []
-
 
 tweets = tweepy.Cursor(api.search_tweets, q = keyword, count = 200, tweet_mode = 'extended').items(limit)
 # Cursor: that we can see more tweets
@@ -114,29 +95,39 @@ df['Subjectivity'] = subjectivities
 
 
 
-## pogledamo koliko znakov imajo tweeti
+## number of characters of tweets
 lengths = []
 for text in df['Tweet']:
     lengths.append(len(text))
 
 df['Length'] = lengths
 
-
 #pd.set_option('display.max_columns', None)
-
 #df.to_csv('poskus.csv')
 print(df)
 
 
 
+def pos_neg_neu(number):
+    '''Tells if the number is positive, negative or neutral(0).'''
+    if number > 0:
+        return 'positive'
+    elif number < 0:
+        return 'negative'
+    else:
+        return 'neutral'
+
 ## Average polarity of tweets
-print(f"Average length: {np.mean(df['Polarity'])}")
+print(f"\nAverage polarity: {round(np.mean(df['Polarity']), 3)} ({pos_neg_neu(np.mean(df['Polarity']))})")
 
 ## Average subjectivity of tweets
-print(f"Average length: {np.mean(df['Subjectivity'])}")
-# 
-## Most reetweets
-print(f"Most reetwets: {np.max(df['Retweets'])}")
+print(f"Average subjectivity: {round(np.mean(df['Subjectivity']), 3)}")
+
+
+print(f"\nMaximal polarity: {np.max(df['Polarity'])}")
+print(f"Maximal subjectivity: {np.max(df['Subjectivity'])}")
+print(f"Minimal polarity: {np.min(df['Polarity'])}")
+print(f"Minimal subjectivity: {np.min(df['Subjectivity'])}")
 
 
 
@@ -158,31 +149,21 @@ for i in range(len(df['Polarity'])):
         break
 
 
+print('The most subjective tweet (one of): ')
+for i in range(len(df['Subjectivity'])):
+    if df['Subjectivity'][i] == np.max(df['Subjectivity']):
+        print(df['Tweet'][i])
+        print('\n')
+        break     # if more tweets have the same subjectivity we print just one
 
-
-
-#Time Series
-# time_likes = pd.Series(data=df['Polarity'].values, index=df['Time'])
-# time_likes.plot(figsize=(16, 4), color='r')
-# plt.show()
+print('The most objective tweet (one of): ')
+for i in range(len(df['Subjectivity'])):
+    if df['Subjectivity'][i] == np.min(df['Subjectivity']):
+        print(df['Tweet'][i])
+        print('\n')
+        break
     
-#time_favs = pd.Series(data=df['likes'].values, index=df['date'])
-#time_favs.plot(figsize=(16, 4), color='r')
-#plt.show()
-
-#time_retweets = pd.Series(data=df['retweets'].values, index=df['date'])
-#time_retweets.plot(figsize=(16, 4), color='r')
-#plt.show()
-
-# Layered Time Series:
-#time_likes = pd.Series(data=df['likes'].values, index=df['date'])
-#time_likes.plot(figsize=(16, 4), label="likes", legend=True)
-
-#time_retweets = pd.Series(data=df['retweets'].values, index=df['date'])
-#time_retweets.plot(figsize=(16, 4), label="retweets", legend=True)
-#plt.show()
-
-
+    
 
 pos_tweets = []
 neg_tweets = []
@@ -203,10 +184,11 @@ for i in range(len(df['Sentiment'])):
 # percentage of negative tweets
 negative = round(100 * len(neg_tweets) / len(df['Sentiment']), 1)   #percentage of negative tweets
 print("Negative tweets percentage: {} %".format(negative))
-# percentage of neutral tweets
+# picking neutral tweets from tweets
 for i in range(len(df['Sentiment'])):
     if df['Sentiment'][i] == 'neutral':
         neu_tweets.append(df['Tweet'][i])
+# percentage of neutral tweets
 #neutral = round(100 * (len(df['Sentiment']) - (len(neg_tweets)+len(pos_tweets)))/len(df['Sentiment']), 1) 
 neutral = round(100 * len(neu_tweets) / len(df['Sentiment']), 1)   #percentage of neutral tweets
 print("Neutral tweets percentage: {} %".format(neutral))
@@ -216,7 +198,22 @@ print("Neutral tweets percentage: {} %".format(neutral))
 # for tweet in pos_tweets[:5]:
 #     print(tweet)
     
-    
+
+##Let's see if there is a connection between polarity and subjectivity
+# We can see that if subjectivity is big, polarity is also big (mostly)
+x = np.array(df['Subjectivity'])
+y = np.array(abs(df['Polarity']))  ##abs vrednost zato da se lepše vidi ali so bolj nevtralni tweeti tudi bolj subjektivni
+
+x0, y0 = np.polyfit(x, y, 1) #find the line that fits best
+plt.scatter(x, y)  #draw a plot with points
+plt.plot(x, x0 * x + y0)  #add line that fits best to the plot
+
+plt.xlabel("Subjectivity")
+plt.ylabel("Polarity")
+plt.title('Connection between subjectivity and polarity(absolute value)')
+plt.show()
+
+
 
 # Histogram
 array_podatkov = np.array([df['Polarity'][i] for i in range(len(df['Polarity']))])
@@ -230,9 +227,8 @@ plt.show()
 
 
 
-
 #Creating PieCart
-marks = ['Positive (' + str(positive) + '%)' , 'Neutral (' + str(neutral) + '%)','Negative (' + str(negative) + '%)']
+marks = ['Positive (' + str(len(pos_tweets)) + ', ' + str(positive) + '%)' , 'Neutral (' + str(len(neu_tweets)) + ', ' + str(neutral) + '%)','Negative (' + str(len(neg_tweets)) + ', ' + str(negative) + '%)']
 sizes = [positive, neutral, negative]
 colors = ['green', 'orange', 'red']
 plt.pie(sizes, labels = marks, colors = colors)  ## lahko dodamo explode = [0.2, 0, 0, 0] da bo en odmaknjen, isto lahko startangle = 90, da zacne zgoraj
@@ -247,7 +243,7 @@ text = clean_tweet(text)
 
 letters = list(string.ascii_lowercase)
 
-stop_words = ['RT', 'https', 'co', 're']  + list(STOPWORDS) + letters # že vgrjenim besedam, ki jih izbriše dodamo še RT, ker pomeni reetweet. s zato ker je okrajšava za is, was...
+stop_words = ['RT', 'https', 'co', 're', 've']  + list(STOPWORDS) + letters
 wordcloud = WordCloud(stopwords = stop_words, background_color="white").generate(text)  #stopwords=stop_words da se znebi kaksnih besed
 plt.imshow(wordcloud)
 plt.axis("off")    ## ne pokaže vrednosti (x, y os)
@@ -255,18 +251,5 @@ plt.show()
 
 
 
-
-##Let's see if there is a connection between polarity and subjectivity
-x = np.array(df['Subjectivity'])
-y = np.array(abs(df['Polarity']))  ##abs vrednost zato da se lepše vidi ali so bolj nevtralni tweeti tudi bolj subjektivni
-
-x0, y0 = np.polyfit(x, y, 1) #find the line that fits best
-plt.scatter(x, y)  #draw a plot with points
-plt.plot(x, x0 * x + y0)  #add line that fits best to the plot
-
-plt.xlabel("Subjectivity")
-plt.ylabel("Polarity")
-
-plt.show()
 
 
